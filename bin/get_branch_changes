@@ -1,0 +1,84 @@
+#!/usr/bin/env perl
+use strict; 
+
+
+my $cvsroot = $ENV{CVSROOT};
+my $branch  = "HEAD";
+my $time    = undef;
+my $module  = "src";
+
+sub usage {
+    my $msg = shift;
+
+    if ($msg) {
+        print "$msg\n";
+    }
+
+    print "Usage: get_branch_changes -d <timestamp> -m <cvs_module> [ -c CVSROOT ] [ -r branch]\n";
+    print "\tGet a list of changes to the current branch since the given date. If no branch is \n";
+    print "\tspecified, HEAD will be used.\n";
+
+    exit(1);
+} # end usage
+
+sub print_record {
+    my $record = shift;
+
+    printf "%-19s  %-12s %-13s %s\n", $record->{date},    $record->{author}, 
+                                      $record->{version}, $record->{file};
+} # end print_record
+
+use Getopt::Std;
+
+our ($opt_r, $opt_d, $opt_m, $opt_c, $opt_h);
+
+getopts('d:m:c:r:h');
+
+if ($opt_h) {
+    usage;
+}
+
+if ($opt_c) {
+    $cvsroot = $opt_c;
+}
+
+if ($opt_d) {
+    $time = $opt_d;
+} else {
+    usage "Date not specified";
+}
+
+if ($opt_m) {
+    $module = $opt_m;
+} else {
+    usage "module not specified";
+}
+
+if ($opt_r) {
+    $branch = $opt_r;
+}
+
+my $cvs_cmd = "cvs -Q -d $cvsroot rlog -N -S -r$branch -d'>$time' $module";
+
+my %current_record = ();
+
+open CVS_OUTPUT, "$cvs_cmd |";
+
+while (<CVS_OUTPUT>) {
+    if (/^={77}$/) {
+        # End of record
+        print_record \%current_record;
+        %current_record = ();
+    } elsif (/^RCS file: $cvsroot\/(.+),v$/) {
+        $current_record{file} = $1;
+    } elsif (/^revision ([0-9\.]+)$/) {
+        $current_record{version} = $1;
+    } elsif (/^date: ([0-9:\/ -]+);[ \t]+author: (.+);[ \t]+state:/) {
+        $current_record{date}   = $1;
+        $current_record{author} = $2;
+    }
+}
+
+close CVS_OUTPUT;
+
+exit(0);

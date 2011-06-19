@@ -1,0 +1,67 @@
+#!/bin/ksh
+
+
+
+function usage {
+    typeset msg=$1
+
+    if [ -n "$msg" ]; then
+        echo $msg
+    fi
+
+    cat << EOM
+Usage: create_cvs_branch <branch_name> <date>
+Create a CVS branch from the given date. 
+
+    branch_name - How to name the branch
+    date        - date of branch origin
+EOM
+
+    exit 1
+} # end usage
+
+
+function timestamp {
+    # YYYYMMDD_HHMM
+    date +'%Y%m%d_%H%M'
+}
+
+branch_name=$1
+
+if [ -z "$branch_name" ]; then
+    usage "No branch name given"
+fi
+shift
+
+date=$1
+
+if [ -z "$date" ]; then
+    usage "No origin date given"
+fi
+shift
+
+tagname="${branch_name}_`timestamp`_start"
+
+cvs rtag -D "$date" $tagname src
+if [ $? -ne 0 ]; then
+    echo "Error creating tag"
+    exit 2
+fi
+
+echo "Tagged files with: $tagname"
+
+cvs rtag -bBF -r $tagname $branch_name src
+if [ $? -ne 0 ]; then
+    echo "Error creating branch"
+    exit 3
+fi
+
+
+echo "Branch created"
+echo " branch: $branch_name"
+echo " tag:    $tagname"
+
+
+
+
+

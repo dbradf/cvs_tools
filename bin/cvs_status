@@ -1,0 +1,68 @@
+#!/usr/bin/env ruby
+# == Description 
+# Display summary status of only CVS files that have changed.
+
+class CvsFile
+	attr_reader :file
+	attr_reader :status
+	attr_reader :working_version
+	attr_reader :repos_version
+	attr_reader :filename
+
+	def initialize(cvs_output)
+		cvs_output.each_line do |line|
+			if line =~ /File: (\S+)\s+Status: (.*)/
+				@file = $1
+				@status = $2
+			elsif line =~ /Working revision:\s+(\d+\.\d+)/
+				@working_version = $1
+			elsif line =~ /Repository revision:\s+(\d+\.\d+)\s+([\w\/\.]+)/
+				@repos_version = $1
+				@filename = $2
+			end
+		end
+	end
+
+	def self.parse_cvs_output(cvs_output)
+		files = Array.new
+		current_str = ""
+		cvs_output.each_line do |line|
+			if line =~ /={20,}/
+				if current_str != ""
+					files.push(CvsFile.new(current_str))
+					current_str = ""
+				end
+			else
+				current_str += line
+			end
+		end
+		if current_str != ""
+			files.push(CvsFile.new(current_str))
+		end
+		files
+	end
+
+	def to_s
+		str = ""
+		str += "File:            #{@file}\n"
+		str += "Status:          #{@status}\n"
+		str += "Working Version: #{@working_version}\n"
+		str += "Repos Version:   #{@repos_version}\n"
+		str += "Filename:        #{@filename}\n"
+	end
+end
+
+
+if $0 == __FILE__
+	cvs_output = `cvs status 2> /dev/null`
+	files = CvsFile.parse_cvs_output(cvs_output)
+
+	files.each do |f|
+		if f.status != "Up-to-date"
+			puts f
+			puts "==================================="
+		end
+	end
+end
+	
+
